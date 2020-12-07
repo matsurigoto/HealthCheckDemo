@@ -37,12 +37,12 @@ namespace HealthCheckDemo
             });
 
             var connectionString = Configuration.GetConnectionString("BloggingDatabase");
-            var weatherServiceUri = "https://localhost:44385";
+            var weatherServiceUri = "https://localhost:5001";
 
             services.AddHealthChecks()
-                    .AddSqlServer(connectionString)
-                    .AddRedis(redisString)
-                    .AddUrlGroup(new Uri($"{weatherServiceUri}/weatherforecast"), "Weather API Health Check", HealthStatus.Degraded, timeout: new System.TimeSpan(0,0,3));
+                    .AddSqlServer(connectionString, tags: new[] { "storage" })
+                    .AddRedis(redisString, tags: new[] { "storage" })
+                    .AddUrlGroup(new Uri($"{weatherServiceUri}/weatherforecast"), "Weather API Health Check", HealthStatus.Degraded, timeout: new System.TimeSpan(0, 0, 3), tags: new[] { "service" });
 
             services.AddHealthChecksUI(setup =>
             {
@@ -70,6 +70,12 @@ namespace HealthCheckDemo
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health", new HealthCheckOptions() 
                 {
+                    ResponseWriter = CreateHealthCheckResponse
+                });
+
+                endpoints.MapHealthChecks("/storageHealth", new HealthCheckOptions()
+                {
+                    Predicate = (check) => check.Tags.Contains("storage"),
                     ResponseWriter = CreateHealthCheckResponse
                 });
 

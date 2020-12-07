@@ -1,10 +1,17 @@
+using HealthCheckDemo.Messages;
+using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json;
 using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace HealthCheckDemo
 {
@@ -36,6 +43,12 @@ namespace HealthCheckDemo
                     .AddSqlServer(connectionString)
                     .AddRedis(redisString)
                     .AddUrlGroup(new Uri($"{weatherServiceUri}/weatherforecast"), "Weather API Health Check", HealthStatus.Degraded, timeout: new System.TimeSpan(0,0,3));
+
+            services.AddHealthChecksUI(setup =>
+            {
+                setup.SetEvaluationTimeInSeconds(5);
+                setup.MaximumHistoryEntriesPerEndpoint(10);
+            }).AddInMemoryStorage();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -51,12 +64,45 @@ namespace HealthCheckDemo
             app.UseRouting();
 
             app.UseAuthorization();
-
+       
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapHealthChecks("/health");
+                endpoints.MapHealthChecks("/health", new HealthCheckOptions() 
+                {
+                    ResponseWriter = CreateHealthCheckResponse
+                });
+
+                endpoints.MapHealthChecks("/healthui", new HealthCheckOptions()
+                {
+                    Predicate = _ => true,
+                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+                });
             });
+
+            app.UseHealthChecksUI();
+        }
+
+        private Task CreateHealthCheckResponse(HttpContext httpContext, HealthReport result)
+        {
+            httpContext.Response.ContentType = "application/json";
+
+            var response = new HealthCheckResponse()
+            {
+                Status = result.Status.ToString(),
+                TotalDuration = result.TotalDuration.TotalSeconds.ToString("0:0.00"),
+                DependencyServices = result.Entries.Select(service => new DependencyService()
+                {
+                    Key = service.Key,
+                    Duration = service.Value.Duration.TotalSeconds.ToString("0:0.00"),
+                    Exception = service.Value.Exception?.Message,
+                    Status = service.Value.Status.ToString(),
+                    Tags = string.Join(",", service.Value.Tags?.ToArray())
+
+                }).ToArray()
+            };
+
+            return httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response, Formatting.Indented));
         }
     }
 }

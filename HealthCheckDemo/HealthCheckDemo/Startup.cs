@@ -70,6 +70,12 @@ namespace HealthCheckDemo
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health", new HealthCheckOptions() 
                 {
+                    ResultStatusCodes =
+                    {
+                        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+                        [HealthStatus.Degraded] = StatusCodes.Status500InternalServerError,
+                        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable,
+                    },
                     ResponseWriter = CreateHealthCheckResponse
                 });
 
@@ -81,6 +87,7 @@ namespace HealthCheckDemo
 
                 endpoints.MapHealthChecks("/healthui", new HealthCheckOptions()
                 {
+
                     Predicate = _ => true,
                     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
                 });

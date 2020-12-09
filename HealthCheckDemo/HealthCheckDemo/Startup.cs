@@ -1,4 +1,5 @@
 using HealthCheckDemo.Messages;
+using HealthCheckDemo.Services;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -39,10 +40,13 @@ namespace HealthCheckDemo
             var connectionString = Configuration.GetConnectionString("BloggingDatabase");
             var weatherServiceUri = "https://localhost:5001";
 
+            var sharedFolderPath = Configuration["SharedFolderPath"];
+
             services.AddHealthChecks()
                     .AddSqlServer(connectionString, tags: new[] { "storage" })
                     .AddRedis(redisString, tags: new[] { "storage" })
-                    .AddUrlGroup(new Uri($"{weatherServiceUri}/weatherforecast"), "Weather API Health Check", HealthStatus.Degraded, timeout: new System.TimeSpan(0, 0, 3), tags: new[] { "service" });
+                    .AddUrlGroup(new Uri($"{weatherServiceUri}/weatherforecast"), "Weather API Health Check", HealthStatus.Degraded, timeout: new System.TimeSpan(0, 0, 3), tags: new[] { "service" })
+                    .AddCheck("File Path Health Check", new SharedFolderHealthCheck(sharedFolderPath), HealthStatus.Unhealthy);
 
             services.AddHealthChecksUI(setup =>
             {
@@ -110,8 +114,8 @@ namespace HealthCheckDemo
                     Duration = service.Value.Duration.TotalSeconds.ToString("0:0.00"),
                     Exception = service.Value.Exception?.Message,
                     Status = service.Value.Status.ToString(),
-                    Tags = string.Join(",", service.Value.Tags?.ToArray())
-
+                    Tags = string.Join(",", service.Value.Tags?.ToArray()),
+                    HealthCheckData = string.Join(";", service.Value.Data.Select(x => x.Key + "=" + x.Value).ToArray())
                 }).ToArray()
             };
 

@@ -1,4 +1,6 @@
-﻿namespace HealthCheckDemo.Messages
+﻿using System.Collections.Generic;
+
+namespace HealthCheckDemo.Messages
 {
     public class HealthCheckResponse
     {
@@ -15,5 +17,6 @@
         public string Duration { get; set; }
         public string Tags { get; set; }
         public string Exception { get; set; }
+        public string HealthCheckData  { get; set; }
     }
 }
